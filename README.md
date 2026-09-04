@@ -1,12 +1,15 @@
 # qBittorrent Path Suggester
 
-> ⚠️ **Estado: alpha.** Probado en una instancia de pruebas aislada y, una
-> vez, en producción real — y ese primer intento en producción **movió mal 3
-> torrents** por falsos positivos del matching (ver "Incidente" más abajo).
-> Por eso, desde ese incidente, **ninguna pieza de este proyecto mueve nada
-> por su cuenta**: `path-suggester/` solo registra una sugerencia en
-> `decisions.jsonl`, nunca llama a `setLocation`. Revísala tú y mueve a mano
-> si te convence.
+> 🟡 **Estado: beta.** Probado primero en una instancia aislada y ahora en
+> uso real en producción, contra una biblioteca de varios cientos de
+> torrents ya organizados. El primer despliegue en producción sí llegó a
+> mover mal 3 torrents por falsos positivos del matching (ver "Incidente" más
+> abajo) — desde entonces, **ninguna pieza de este proyecto mueve nada por su
+> cuenta**: `path-suggester/` solo registra una sugerencia en
+> `decisions.jsonl`, nunca llama a `setLocation`, y la parte de interfaz
+> (`webui/`) solo rellena un campo de texto editable. Aun así, revisa las
+> sugerencias antes de fiarte del todo — el matching sigue siendo un
+> solapamiento de palabras simple, no magia.
 
 Complemento para [qBittorrent](https://www.qbittorrent.org/) que mejora la
 selección de carpeta al añadir un torrent nuevo. qBittorrent solo recuerda la
@@ -91,8 +94,11 @@ Tres piezas:
 
 - **`qbittorrent-pruebas`** — una instancia de qBittorrent
   ([`linuxserver/qbittorrent`](https://github.com/linuxserver/docker-qbittorrent))
-  aislada, pensada para probar esto sin tocar tu instancia real. Puedes
-  apuntar las otras dos piezas a tu propio qBittorrent en vez de usar esta.
+  aislada, opcional, para probar esto por primera vez sin tocar tu instancia
+  real. El autor la usó durante el desarrollo y ya no la necesita — corre
+  esto directamente contra su qBittorrent de producción — pero se mantiene
+  en el repo como la forma recomendada de probarlo tú por primera vez antes
+  de apuntarlo a tu propia instancia.
 - **`webui/`** — una copia local de la WebUI oficial de qBittorrent (versión
   5.2.3, bajada de su repositorio) con dos archivos tocados:
   `private/scripts/addtorrent.js` (engancha la sugerencia justo cuando
