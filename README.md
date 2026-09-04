@@ -8,54 +8,73 @@
 > confíes en el criterio, y no lo apuntes a tu qBittorrent de producción sin
 > antes entender qué hace `setLocation`.
 
-Servicio complementario para [qBittorrent](https://www.qbittorrent.org/) que
-mejora la selección de carpeta al añadir un torrent nuevo. qBittorrent solo
-recuerda la *última* ruta usada; este servicio, en cambio, mira el nombre del
-torrent y lo compara contra el histórico de rutas donde ya has guardado cosas
-parecidas, para proponer (y aplicar) automáticamente la carpeta más probable.
+Complemento para [qBittorrent](https://www.qbittorrent.org/) que mejora la
+selección de carpeta al añadir un torrent nuevo. qBittorrent solo recuerda la
+*última* ruta usada; esto, en cambio, mira el nombre del torrent y lo compara
+contra el histórico de rutas donde ya has guardado cosas parecidas, para
+proponer automáticamente la carpeta más probable.
+
+Hay dos formas de verlo funcionar, y ambas comparten el mismo criterio de
+comparación (mismo algoritmo, una copia en Python y otra en JavaScript):
+
+- **En la propia interfaz** (`webui/`): el campo *"Save files to location"*
+  del diálogo de "Añadir torrent" aparece ya relleno con la ruta sugerida en
+  cuanto qBittorrent conoce el nombre del torrent — **antes** de que le des a
+  Añadir. Sigue siendo un campo de texto normal: si la sugerencia no te
+  convence, la cambias a mano y ya. Esta es la forma que pediste.
+- **En segundo plano** (`path-suggester/`): un servicio aparte que vigila
+  torrents añadidos por *cualquier otra vía* (RSS, Sonarr/Radarr, otro
+  cliente WebUI, un script) y los reubica después de añadidos, por si no
+  pasaron por el diálogo de arriba.
 
 ## Qué hace
 
-- Sondea la API WebUI de qBittorrent cada pocos segundos buscando torrents
-  nuevos.
-- Por cada torrent nuevo, extrae del nombre las palabras que probablemente
-  identifican la serie/película (filtrando calidad, codec, idioma, sitios de
-  descarga, marcadores de temporada/episodio y palabras genéricas EN/ES).
+- Extrae del nombre del torrent las palabras que probablemente identifican
+  la serie/película (filtrando calidad, codec, idioma, sitios de descarga,
+  marcadores de temporada/episodio en formato inglés y español, y palabras
+  genéricas EN/ES).
 - Compara esas palabras contra el histórico de palabras vistas en cada
   `save_path` que ya usas (construido a partir de los torrents que ya tienes
   en qBittorrent).
 - Si una ruta destaca claramente (sin empates) con al menos `N` palabras en
-  común, mueve el torrent ahí con `torrents/setLocation` — como esto ocurre
-  antes de que se descarguen datos, el movimiento es instantáneo.
-- Si no hay una coincidencia clara, no toca nada: se queda la ruta por
-  defecto de qBittorrent, igual que si esto no existiera, y la cambias a mano
-  como siempre.
-- Registra cada decisión (aplicada o no, con las palabras que coincidieron)
-  en `path-suggester/data/decisions.jsonl`, para poder auditar por qué movió
-  (o no movió) cada torrent.
+  común, la propone. Si no hay coincidencia clara, no sugiere nada y se queda
+  el comportamiento normal de qBittorrent.
+- La pieza de fondo (`path-suggester`) además *aplica* la sugerencia con
+  `torrents/setLocation` y registra cada decisión (aplicada o no, con las
+  palabras que coincidieron) en `path-suggester/data/decisions.jsonl`, para
+  poder auditar por qué movió (o no movió) cada torrent.
 
 ## Qué NO hace (todavía)
 
-- No toca la interfaz web de qBittorrent ni añade nada visual al diálogo de
-  "añadir torrent" — actúa después, moviendo el torrent recién añadido.
 - No aprende de tus correcciones manuales de forma activa; simplemente la
   próxima vez que ese torrent (o cualquier otro) esté en esa carpeta,
   contribuye al histórico.
 - El matching es un solapamiento de palabras simple, sin pesos ni
   aprendizaje. Dos títulos distintos que compartan una palabra poco común
   (o el mismo grupo de release) pueden coincidir por error.
+- El umbral de coincidencias mínimas no es configurable desde la interfaz
+  todavía — en `webui/` está fijo en el código (`pathSuggester.js`); en
+  `path-suggester/` sí es una variable de entorno (`MIN_MATCH_TOKENS`).
 
 ## Cómo funciona por dentro
 
-Dos piezas, pensadas para correr como contenedores separados en el mismo
-`docker-compose.yml`:
+Tres piezas:
 
 - **`qbittorrent-pruebas`** — una instancia de qBittorrent
   ([`linuxserver/qbittorrent`](https://github.com/linuxserver/docker-qbittorrent))
   aislada, pensada para probar esto sin tocar tu instancia real. Puedes
-  apuntar el servicio de abajo a tu propio qBittorrent en vez de usar esta.
-- **`path-suggester`** — el servicio en Python que hace el sondeo y el
-  matching (`path-suggester/main.py` y `path-suggester/matcher.py`).
+  apuntar las otras dos piezas a tu propio qBittorrent en vez de usar esta.
+- **`webui/`** — una copia local de la WebUI oficial de qBittorrent (versión
+  5.2.3, bajada de su repositorio) con dos archivos tocados:
+  `private/scripts/addtorrent.js` (engancha la sugerencia justo cuando
+  qBittorrent conoce el nombre del torrent nuevo, en `populateMetadata`) y el
+  nuevo `private/scripts/pathSuggester.js` (la lógica de comparación, en
+  JavaScript). Se sirve usando la función nativa de qBittorrent **"Use
+  alternative WebUI"** — no es un fork que haya que mantener aparte del
+  cliente oficial, solo una carpeta de archivos estáticos que sustituye a la
+  WebUI integrada.
+- **`path-suggester/`** — el servicio en Python que hace el sondeo en
+  segundo plano y el matching (`main.py` y `matcher.py`).
 
 ## Instalación
 
@@ -118,8 +137,28 @@ Dos piezas, pensadas para correr como contenedores separados en el mismo
    docker compose up -d --build
    ```
 
-6. Añade un torrent nuevo desde la WebUI de qBittorrent como siempre, y
-   revisa qué decidió:
+6. Activa la WebUI alternativa (la carpeta `webui/` con la sugerencia
+   integrada en el diálogo de añadir torrent). Puedes hacerlo desde la
+   propia interfaz, en **Herramientas → Opciones → WebUI → Use alternative
+   WebUI**, apuntando a `/webui-custom` (la ruta interna del contenedor
+   donde se monta `./webui`); o por API:
+
+   ```bash
+   curl -c /tmp/cj --data-urlencode "username=admin" --data-urlencode "password=<tu-contraseña>" \
+     http://localhost:8097/api/v2/auth/login
+   curl -b /tmp/cj -X POST http://localhost:8097/api/v2/app/setPreferences \
+     --data-urlencode 'json={"alternative_webui_enabled": true, "alternative_webui_path": "/webui-custom"}'
+   ```
+
+   Si apuntas `path-suggester`/la WebUI a tu propio qBittorrent en vez del
+   de este repo, monta tú `./webui` como volumen en tu contenedor (o
+   cópialo a donde corra tu instancia) antes de activar la opción.
+
+7. Prueba: añade un torrent nuevo desde la WebUI (por magnet o archivo
+   `.torrent`) y mira el campo *"Save files to location"* del diálogo antes
+   de confirmar — si hay coincidencia con el histórico, ya debería aparecer
+   rellenado. Si además tienes `path-suggester` corriendo, comprueba también
+   qué decidió por su lado:
 
    ```bash
    docker compose logs -f path-suggester
@@ -143,6 +182,17 @@ Dos piezas, pensadas para correr como contenedores separados en el mismo
 - No hay protección contra falsos positivos más allá del umbral
   `MIN_MATCH_TOKENS` y el desempate (si dos rutas empatan en puntuación, no
   se mueve nada, por seguridad).
+- `webui/` es una copia de la WebUI oficial **fijada a la versión 5.2.3**. Si
+  actualizas qBittorrent a una versión con la WebUI distinta, esta copia se
+  queda desactualizada (puede faltarle funcionalidad nueva, o directamente
+  no cargar) hasta que se vuelva a generar contra la versión nueva y se
+  reapliquen los dos cambios (`addtorrent.js` y `pathSuggester.js`) a mano.
+- La sugerencia en `webui/` se recalcula cada vez que llega nueva
+  información de metadata (puede ser varias veces mientras se resuelve un
+  magnet), y dejamos de tocar el campo en cuanto detectamos que el usuario
+  lo ha editado a mano. No debería pisar lo que escribas, pero como el resto
+  de esto: sin probar a fondo todavía, especialmente con magnets lentos de
+  resolver.
 
 ## Licencia
 

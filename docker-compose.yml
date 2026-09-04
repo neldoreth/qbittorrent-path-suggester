@@ -10,6 +10,7 @@ services:
       - TORRENTING_PORT=6891
     volumes:
       - ./config:/config
+      - ./webui:/webui-custom:ro
       - /nas:/nas
       - /nas2:/nas2
     ports:

@@ -3,10 +3,12 @@ import re
 _BRACKETS_RE = re.compile(r"[\[\]{}()]+")
 _SEPARATORS_RE = re.compile(r"[.\-_+,;:!?'\"/\\|]+")
 
-# Marcadores de temporada/episodio (s01e01, s01, e01, 1x01...): aparecen en
-# casi cualquier serie, así que nunca deben contar como coincidencia real.
+# Marcadores de temporada/episodio en cualquiera de sus formas habituales
+# (s01e01, s01, e01, 1x01, cap103, capitulo103, t01...): aparecen en casi
+# cualquier serie, así que nunca deben contar como coincidencia real.
 _EPISODE_MARKER_RE = re.compile(
-    r"^(s\d{1,3}e\d{1,3}|s\d{1,3}|e\d{1,3}|\d{1,2}x\d{1,3})$"
+    r"^(s\d{1,3}e\d{1,3}|s\d{1,3}|e\d{1,3}|\d{1,2}x\d{1,3}"
+    r"|t\d{1,3}|cap\d{1,4}|capitulo\d{1,4}|ep\d{1,4})$"
 )
 
 # Ruido típico de nombres de release: calidad, codec, audio, idioma, sitios
@@ -22,7 +24,8 @@ _NOISE_TOKENS = {
     "vosi", "latino", "castellano", "espanol", "spanish", "english", "eng",
     "esp", "cast",
     "proper", "repack", "internal", "extended", "uncut", "remastered",
-    "complete", "season", "episode", "temporada", "capitulo",
+    "complete", "season", "episode", "temporada", "temp", "capitulo",
+    "cap", "caps", "episodio", "ep", "eps",
     "nf", "amzn", "dsnp", "hmax", "atvp", "ddp",
     "yts", "mx", "rarbg", "eztv", "yify", "torrentgalaxy", "tgx",
     "1337x", "kickass", "galaxyrg",
