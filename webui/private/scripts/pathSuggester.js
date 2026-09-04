@@ -37,13 +37,17 @@ window.qBittorrent.PathSuggester ??= (() => {
         "aac", "ac3", "eac3", "dts", "flac", "mp3", "opus", "10bit", "8bit",
         "multi", "dual", "audio", "sub", "subs", "subbed", "dubbed", "vose",
         "vosi", "latino", "castellano", "espanol", "spanish", "english", "eng",
-        "esp", "cast",
+        "esp", "cast", "ing",
         "proper", "repack", "internal", "extended", "uncut", "remastered",
         "complete", "season", "episode", "temporada", "temp", "capitulo",
         "cap", "caps", "episodio", "ep", "eps",
         "nf", "amzn", "dsnp", "hmax", "atvp", "ddp",
         "yts", "mx", "rarbg", "eztv", "yify", "torrentgalaxy", "tgx",
         "1337x", "kickass", "galaxyrg",
+        // extensiones de archivo: en un torrent de un solo fichero, el
+        // nombre trae la extensión pegada y sería ruido en cualquier release
+        "mkv", "mp4", "avi", "mov", "wmv", "flv", "ts", "m2ts", "iso",
+        "srt", "idx", "nfo",
         "the", "a", "an", "of", "and", "el", "la", "los", "las", "de", "y",
         "un", "una",
     ]);

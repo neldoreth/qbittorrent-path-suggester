@@ -1,19 +1,18 @@
 # qBittorrent Path Suggester
 
-> ⚠️ **Estado: alpha, probado solo en una instancia de pruebas aislada.** La
-> sugerencia en el diálogo de "Añadir torrent" (`webui/`) y el servicio de
-> fondo (`path-suggester/`) ya se han verificado funcionando con torrents
-> reales sobre `qbittorrent-pruebas`. Sigue sin probarse contra una
-> instancia de producción, con volúmenes de historial grandes, o con
-> magnets lentos de resolver. Revisa `path-suggester/data/decisions.jsonl`
-> tras cada torrent nuevo hasta que confíes en el criterio, y no lo apuntes
-> a tu qBittorrent de producción sin antes entender qué hace `setLocation`.
+> ⚠️ **Estado: alpha.** Probado en una instancia de pruebas aislada y, una
+> vez, en producción real — y ese primer intento en producción **movió mal 3
+> torrents** por falsos positivos del matching (ver "Incidente" más abajo).
+> Por eso, desde ese incidente, **ninguna pieza de este proyecto mueve nada
+> por su cuenta**: `path-suggester/` solo registra una sugerencia en
+> `decisions.jsonl`, nunca llama a `setLocation`. Revísala tú y mueve a mano
+> si te convence.
 
 Complemento para [qBittorrent](https://www.qbittorrent.org/) que mejora la
 selección de carpeta al añadir un torrent nuevo. qBittorrent solo recuerda la
 *última* ruta usada; esto, en cambio, mira el nombre del torrent y lo compara
 contra el histórico de rutas donde ya has guardado cosas parecidas, para
-proponer automáticamente la carpeta más probable.
+**sugerir** la carpeta más probable — nunca para moverla por su cuenta.
 
 Hay dos formas de verlo funcionar, y ambas comparten el mismo criterio de
 comparación (mismo algoritmo, una copia en Python y otra en JavaScript):
@@ -22,28 +21,28 @@ comparación (mismo algoritmo, una copia en Python y otra en JavaScript):
   del diálogo de "Añadir torrent" aparece ya relleno con la ruta sugerida en
   cuanto qBittorrent conoce el nombre del torrent — **antes** de que le des a
   Añadir. Sigue siendo un campo de texto normal: si la sugerencia no te
-  convence, la cambias a mano y ya. Esta es la forma que pediste.
+  convence, la cambias a mano y ya. Esta es la forma que pediste, y la única
+  que decide algo por ti (rellenar un campo que de todas formas ibas a
+  revisar antes de confirmar).
 - **En segundo plano** (`path-suggester/`): un servicio aparte que vigila
   torrents añadidos por *cualquier otra vía* (RSS, Sonarr/Radarr, otro
-  cliente WebUI, un script) y los reubica después de añadidos, por si no
-  pasaron por el diálogo de arriba.
+  cliente WebUI, un script) y **anota** en un log qué ruta les habría tocado,
+  para que la muevas tú a mano si te convence. No toca nada él solo.
 
 ## Qué hace
 
 - Extrae del nombre del torrent las palabras que probablemente identifican
   la serie/película (filtrando calidad, codec, idioma, sitios de descarga,
-  marcadores de temporada/episodio en formato inglés y español, y palabras
-  genéricas EN/ES).
+  marcadores de temporada/episodio en formato inglés y español, extensiones
+  de archivo, y palabras genéricas EN/ES).
 - Compara esas palabras contra el histórico de palabras vistas en cada
   `save_path` que ya usas (construido a partir de los torrents que ya tienes
   en qBittorrent).
 - Si una ruta destaca claramente (sin empates) con al menos `N` palabras en
-  común, la propone. Si no hay coincidencia clara, no sugiere nada y se queda
-  el comportamiento normal de qBittorrent.
-- La pieza de fondo (`path-suggester`) además *aplica* la sugerencia con
-  `torrents/setLocation` y registra cada decisión (aplicada o no, con las
-  palabras que coincidieron) en `path-suggester/data/decisions.jsonl`, para
-  poder auditar por qué movió (o no movió) cada torrent.
+  común, la sugiere. Si no hay coincidencia clara, no sugiere nada.
+- La pieza de fondo (`path-suggester`) registra cada sugerencia (con las
+  palabras que coincidieron) en `path-suggester/data/decisions.jsonl` — y
+  **solo** eso. No llama a `setLocation` ni mueve ningún archivo.
 
 ## Qué NO hace (todavía)
 
@@ -56,6 +55,35 @@ comparación (mismo algoritmo, una copia en Python y otra en JavaScript):
 - El umbral de coincidencias mínimas no es configurable desde la interfaz
   todavía — en `webui/` está fijo en el código (`pathSuggester.js`); en
   `path-suggester/` sí es una variable de entorno (`MIN_MATCH_TOKENS`).
+
+## Incidente (2026-09-04)
+
+Al desplegar `path-suggester` por primera vez contra una instancia de
+producción real (con cientos de torrents ya organizados), el servicio
+procesó de golpe *todos* los torrents existentes — no solo los nuevos — y
+**aplicó** (esta versión sí llamaba a `setLocation` automáticamente) 3
+movimientos equivocados por palabras demasiado genéricas que no estaban en
+la lista de ruido:
+
+- `mkv` — la extensión del archivo, presente en casi cualquier torrent de un
+  solo fichero, contaba como palabra significativa.
+- `ing` — abreviatura de "inglés" en release en español (p. ej. `ESP-ING`),
+  no estaba filtrada como sí lo estaba `eng`.
+- Palabras genéricas de una sola coincidencia (`star`, `hombre`) bastaban
+  para mover algo con el umbral por defecto (`MIN_MATCH_TOKENS=1`).
+
+Resultado: una película se coló en la carpeta de una serie sin ninguna
+relación real, dos veces. Se corrigió a mano en cuestión de minutos (mismo
+mecanismo, `setLocation` de vuelta a la ruta original), pero fue exactamente
+el escenario que este README ya avisaba como riesgo teórico en la sección
+"Qué NO hace" — y pasó la primera vez que se probó con una biblioteca real
+grande, no con los pocos torrents sintéticos usados hasta entonces.
+
+Cambios a raíz de esto: `mkv`/`mp4`/`avi`/etc. e `ing` añadidos al ruido, y
+sobre todo, **se eliminó la capacidad de `path-suggester` de mover nada por
+su cuenta** — ahora solo sugiere. Si en el futuro se quiere recuperar el
+modo "aplica automáticamente", que sea explícito y opt-in, nunca el
+comportamiento por defecto.
 
 ## Cómo funciona por dentro
 
@@ -130,7 +158,7 @@ Tres piezas:
    | `QBIT_USERNAME` | `admin` | Usuario de la WebUI |
    | `QBIT_PASSWORD` | — | Contraseña de la WebUI (desde `.env`) |
    | `POLL_INTERVAL_SECONDS` | `5` | Cada cuánto se sondean torrents nuevos |
-   | `MIN_MATCH_TOKENS` | `1` | Mínimo de palabras en común para mover el torrent. Súbelo a `2` si ves falsos positivos |
+   | `MIN_MATCH_TOKENS` | `1` | Mínimo de palabras en común para sugerir una ruta. Súbelo a `2` si ves falsos positivos |
 
 5. Levanta todo:
 
@@ -181,8 +209,9 @@ Tres piezas:
 - El matching solo mira el **nombre** del torrent, no los archivos internos
   todavía.
 - No hay protección contra falsos positivos más allá del umbral
-  `MIN_MATCH_TOKENS` y el desempate (si dos rutas empatan en puntuación, no
-  se mueve nada, por seguridad).
+  `MIN_MATCH_TOKENS`, el desempate (si dos rutas empatan en puntuación, no se
+  sugiere nada) y la lista de ruido — que, como demostró el incidente de
+  arriba, no es exhaustiva. Revisa siempre antes de mover a mano.
 - `webui/` es una copia de la WebUI oficial **fijada a la versión 5.2.3**. Si
   actualizas qBittorrent a una versión con la WebUI distinta, esta copia se
   queda desactualizada (puede faltarle funcionalidad nueva, o directamente

@@ -53,13 +53,9 @@ class QbitClient:
         resp.raise_for_status()
         return resp.json()
 
-    def set_location(self, torrent_hash: str, location: str):
-        resp = self.session.post(
-            f"{self.base_url}/api/v2/torrents/setLocation",
-            data={"hashes": torrent_hash, "location": location},
-            timeout=10,
-        )
-        resp.raise_for_status()
+    # Deliberadamente NO hay ningún método que mueva torrents. Este servicio
+    # solo sugiere -- nunca toca setLocation por su cuenta. Ver
+    # decisions.jsonl y el campo "suggested_path" para decidir tú a mano.
 
 
 def load_state() -> set:
@@ -108,35 +104,28 @@ def process_new_torrents(client: QbitClient, processed: set):
         history = build_history(torrents, exclude_hash=h)
         new_tokens = tokenize(name)
         path, score, matched = suggest_path(new_tokens, history, MIN_MATCH_TOKENS)
+        current_path = t.get("save_path")
 
         decision = {
             "hash": h,
             "name": name,
-            "previous_path": t.get("save_path"),
+            "current_path": current_path,
             "score": score,
             "matched_tokens": sorted(matched),
+            "suggested_path": path,
             "ts": time.time(),
         }
 
-        if path and path == t.get("save_path"):
-            log.info("Torrent %r: ya está en la ruta sugerida %r (score=%d, coincidencias=%s)",
-                      name, path, score, sorted(matched))
-            decision["chosen_path"] = path
-            decision["applied"] = False
+        # Solo sugerimos: este servicio nunca llama a setLocation por su
+        # cuenta. Revisa decisions.jsonl y mueve tú a mano si te convence.
+        if path and (path != current_path):
+            log.info("Torrent %r: sugerencia -> %s (ruta actual %r, score=%d, coincidencias=%s)",
+                      name, path, current_path, score, sorted(matched))
         elif path:
-            log.info("Torrent %r -> %s (score=%d, coincidencias=%s)",
+            log.info("Torrent %r: ya está en la ruta que le tocaría, %r (score=%d, coincidencias=%s)",
                       name, path, score, sorted(matched))
-            client.set_location(h, path)
-            # reflejamos el cambio en memoria para que el resto de torrents
-            # de este mismo ciclo vean la ruta nueva, no la de antes de mover
-            t["save_path"] = path
-            decision["chosen_path"] = path
-            decision["applied"] = True
         else:
-            log.info("Torrent %r: sin coincidencia clara, se deja la ruta por defecto %r",
-                      name, t.get("save_path"))
-            decision["chosen_path"] = None
-            decision["applied"] = False
+            log.info("Torrent %r: sin coincidencia clara (ruta actual %r)", name, current_path)
 
         log_decision(decision)
         processed.add(h)
