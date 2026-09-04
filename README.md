@@ -1,12 +1,13 @@
 # qBittorrent Path Suggester
 
-> ⚠️ **Estado: alpha muy temprana, sin probar con uso real.** Solo se ha
-> verificado con torrents sintéticos (magnets falsos sin datos reales) en una
-> instancia de pruebas aislada. No se ha usado todavía con tráfico ni
-> descargas reales, ni contra una instancia de producción. Revisa
-> `path-suggester/data/decisions.jsonl` tras cada torrent nuevo hasta que
-> confíes en el criterio, y no lo apuntes a tu qBittorrent de producción sin
-> antes entender qué hace `setLocation`.
+> ⚠️ **Estado: alpha, probado solo en una instancia de pruebas aislada.** La
+> sugerencia en el diálogo de "Añadir torrent" (`webui/`) y el servicio de
+> fondo (`path-suggester/`) ya se han verificado funcionando con torrents
+> reales sobre `qbittorrent-pruebas`. Sigue sin probarse contra una
+> instancia de producción, con volúmenes de historial grandes, o con
+> magnets lentos de resolver. Revisa `path-suggester/data/decisions.jsonl`
+> tras cada torrent nuevo hasta que confíes en el criterio, y no lo apuntes
+> a tu qBittorrent de producción sin antes entender qué hace `setLocation`.
 
 Complemento para [qBittorrent](https://www.qbittorrent.org/) que mejora la
 selección de carpeta al añadir un torrent nuevo. qBittorrent solo recuerda la
