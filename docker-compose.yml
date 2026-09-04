@@ -1,0 +1,34 @@
+services:
+  qbittorrent-pruebas:
+    image: lscr.io/linuxserver/qbittorrent
+    container_name: qbittorrent-pruebas
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=Europe/London
+      - WEBUI_PORT=8080
+      - TORRENTING_PORT=6891
+    volumes:
+      - ./config:/config
+      - /nas:/nas
+      - /nas2:/nas2
+    ports:
+      - 8097:8080
+      - 6891:6891
+      - 6891:6891/udp
+    restart: unless-stopped
+
+  path-suggester:
+    build: ./path-suggester
+    container_name: qbittorrent-pruebas-path-suggester
+    environment:
+      - QBIT_URL=http://qbittorrent-pruebas:8080
+      - QBIT_USERNAME=admin
+      - QBIT_PASSWORD=${QBIT_PASSWORD}
+      - POLL_INTERVAL_SECONDS=5
+      - MIN_MATCH_TOKENS=1
+    volumes:
+      - ./path-suggester/data:/data
+    depends_on:
+      - qbittorrent-pruebas
+    restart: unless-stopped
