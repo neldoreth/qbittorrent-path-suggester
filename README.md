@@ -197,4 +197,12 @@ Tres piezas:
 
 ## Licencia
 
-Sin licencia definida todavía — de momento, todos los derechos reservados.
+Este repositorio (todo salvo `webui/`) está bajo [GPLv3](LICENSE).
+
+`webui/` es una copia vendorizada de la WebUI oficial de qBittorrent
+(versión 5.2.3, con `addtorrent.js` y el nuevo `pathSuggester.js` como único
+cambio) y conserva la licencia original de esos archivos tal cual la trae el
+proyecto qBittorrent: la mayoría bajo GPLv2 (con la excepción de enlazado
+con OpenSSL que usa el propio qBittorrent), y algún archivo puntual —
+`addtorrent.js` entre ellos— bajo MIT, según su propia cabecera. No se
+reclama copyright sobre ese código salvo por las líneas añadidas.
