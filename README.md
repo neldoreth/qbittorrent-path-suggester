@@ -129,14 +129,15 @@ Dos piezas, pensadas para correr como contenedores separados en el mismo
 ## Notas técnicas / limitaciones conocidas
 
 - qBittorrent valida el header `Host` de las peticiones a la WebUI contra su
-  puerto **interno**, no el publicado por Docker. Si llamas a la API desde
-  fuera del contenedor usando el puerto mapeado (p. ej. `curl
-  http://localhost:8097/...`), tienes que forzar `Host: localhost:8080` (el
-  puerto interno) o qBittorrent responde `401` con "Invalid Host header" en
-  su log. El servicio `path-suggester` no sufre esto porque habla con
-  qBittorrent por la red interna de Docker, directamente al puerto interno.
+  puerto **interno** (el que fija `WEBUI_PORT`), no contra el puerto que
+  publiques por fuera. Si ambos no coinciden, cualquier acceso desde fuera
+  del contenedor (navegador incluido) recibe `401 Unauthorized` sin más
+  explicación (en el log de qBittorrent aparece como "Invalid Host header,
+  port mismatch"). Por eso en `docker-compose.yml` el puerto publicado y
+  `WEBUI_PORT` son siempre el mismo número (`8097:8097`) — si cambias el
+  puerto, cambia los dos a la vez.
 - El nombre de la cookie de sesión de la WebUI incluye el puerto (p. ej.
-  `QBT_SID_8080`), no es simplemente `SID`.
+  `QBT_SID_8097`), no es simplemente `SID`.
 - El matching solo mira el **nombre** del torrent, no los archivos internos
   todavía.
 - No hay protección contra falsos positivos más allá del umbral

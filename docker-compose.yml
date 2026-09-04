@@ -6,14 +6,14 @@ services:
       - PUID=1000
       - PGID=1000
       - TZ=Europe/London
-      - WEBUI_PORT=8080
+      - WEBUI_PORT=8097
       - TORRENTING_PORT=6891
     volumes:
       - ./config:/config
       - /nas:/nas
       - /nas2:/nas2
     ports:
-      - 8097:8080
+      - 8097:8097
       - 6891:6891
       - 6891:6891/udp
     restart: unless-stopped
@@ -22,7 +22,7 @@ services:
     build: ./path-suggester
     container_name: qbittorrent-pruebas-path-suggester
     environment:
-      - QBIT_URL=http://qbittorrent-pruebas:8080
+      - QBIT_URL=http://qbittorrent-pruebas:8097
       - QBIT_USERNAME=admin
       - QBIT_PASSWORD=${QBIT_PASSWORD}
       - POLL_INTERVAL_SECONDS=5
